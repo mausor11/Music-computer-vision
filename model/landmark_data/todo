@@ -1,0 +1,12 @@
+,POINTER,THUMB_CLOSE,THUMB_FAR
+
+1. zapamietywanie zdjecia -> augmentacja danych
+2. Mediapipe z obrazow a nie filmu
+3. rejestrowanie obrazow a nie punktow
+4. wyciaganie punktow z obrazu
+5. nagranie kilka gotowych sekwencji -> jako testowanie
+6. dodanie linkow na kanal
+7. normalizacja danych -> normalizacja wspolrzedne -> srednia wartosc X i Y -> przeliczanie nowy punkt -> stary punkt - wartosc srednia (przed wpuszczeniem ich na wejscie sieci
+8. liczenie dokladnosci na zbiorze testowym i treningowym
+9. Zdjecie -> zczytanie landmarkow mediapipe (numpy) -> model
+10*. Generowanie dodatkowych zdjec

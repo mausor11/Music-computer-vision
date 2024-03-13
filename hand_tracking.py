@@ -1,0 +1,222 @@
+import csv
+import os
+
+import cv2
+import mediapipe as mp
+import tensorflow as tf
+import numpy as np
+
+
+def load_labels(filename):
+    with open(filename, newline='') as file:
+        reader = csv.reader(file)
+        return list(reader)[0]
+
+
+def normalization(landmarks):
+    landmarks = np.reshape(landmarks, (1, -1))  # Zamienia tablicę 1x42 na 21x2
+    mean_x = np.mean(landmarks[:, ::2], dtype=float)  # Średnia dla pierwszej kolumny
+    mean_y = np.mean(landmarks[:, 1::2], dtype=float)  # Średnia dla drugiej kolumny
+
+    normalized_landmarks = np.zeros_like(landmarks, dtype=float)
+
+    normalized_landmarks[:, ::2] = landmarks[:, ::2] - mean_x
+    normalized_landmarks[:, 1::2] = landmarks[:, 1::2] - mean_y
+
+    return np.reshape(normalized_landmarks, (1, -1))
+
+
+def predict(landmarks, model):
+    landmarks = normalization(landmarks)
+    prediction = model.predict(landmarks, verbose=0)
+    hand_state = np.argmax(prediction)
+    if hand_state == 0:
+        return "CLOSE"
+    elif hand_state == 1:
+        return "OPEN"
+    else:
+        return "NONE"
+
+
+def hand_tracker(width: int, height: int):
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+    mp_drawing = mp.solutions.drawing_utils
+    mp_hands = mp.solutions.hands
+    hand = mp_hands.Hands()
+
+    labels = load_labels('model/landmark_data/landmark_classifier_label.csv')
+    current_label = None
+
+    with open('model/landmark_data/landmarks_data.csv', mode='a', newline='') as landmark_file:
+        landmarks_writer = csv.writer(landmark_file)
+
+        while True:
+            success, frame = cap.read()
+            if success:
+                RGB_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                result = hand.process(RGB_frame)
+
+                drawing_spec = mp_drawing.DrawingSpec(color=(189, 183, 107), thickness=2, circle_radius=1)
+                if result.multi_hand_landmarks:
+                    for hand_landmarks in result.multi_hand_landmarks:
+                        landmarks = []
+                        for idx, lm in enumerate(hand_landmarks.landmark):
+                            h, w, c = frame.shape
+                            cx, cy = int(lm.x * w), int(lm.y * h)
+                            landmarks.extend([cx, cy])
+
+                            cv2.putText(frame, f"{idx}: ({cx, cy})", (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                        (255, 255, 255), 1, cv2.LINE_AA)
+
+                        mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                                                  landmark_drawing_spec=drawing_spec)
+
+                        key = cv2.waitKey(1)
+                        if key == ord('c'):
+                            if current_label is not None:
+                                landmarks_writer.writerow([current_label] + landmarks)
+                            else:
+                                print("Nie wybrano etykiety.")
+                if current_label is not None:
+                    cv2.putText(frame, f"Label: {current_label}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                                (255, 255, 255), 2, cv2.LINE_AA)
+
+                cv2.imshow("Music.", frame)
+
+                key = cv2.waitKey(1)
+                if key in range(ord('0'), ord('5')):
+                    label_index = key - ord('0')
+                    if label_index < len(labels):
+                        current_label = labels[label_index]
+
+                        print(f"Wybrano etykietę: {current_label}")
+                    else:
+                        print("Nieprawidłowy wybór etykiety.")
+
+                if key == ord('q'):
+                    break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+def hand_tracker_img(width: int, height: int):
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+    mp_drawing = mp.solutions.drawing_utils
+    mp_hands = mp.solutions.hands
+    hand = mp_hands.Hands()
+
+    labels = load_labels('model/landmark_data/landmark_classifier_label.csv')
+    current_label = None
+
+    with open('model/landmark_data/landmarks_data.csv', mode='a', newline='') as landmark_file:
+        landmarks_writer = csv.writer(landmark_file)
+
+        while True:
+            success, frame = cap.read()
+            if success:
+                RGB_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                result = hand.process(RGB_frame)
+
+                drawing_spec = mp_drawing.DrawingSpec(color=(189, 183, 107), thickness=2, circle_radius=1)
+                if result.multi_hand_landmarks:
+                    for hand_landmarks in result.multi_hand_landmarks:
+                        landmarks = []
+                        for idx, lm in enumerate(hand_landmarks.landmark):
+                            h, w, c = frame.shape
+                            cx, cy = int(lm.x * w), int(lm.y * h)
+                            landmarks.extend([cx, cy])
+
+                        key = cv2.waitKey(1)
+                        if key == ord('c'):
+                            if current_label is not None:
+                                if current_label == 'OPEN':  # open
+                                    image_name = f"o_{len(os.listdir('model/landmark_data/gesture_open'))}.jpg"
+                                    cv2.imwrite(os.path.join('model/landmark_data/gesture_open', image_name), frame)
+                                elif current_label == 'CLOSE':  # close
+                                    image_name = f"c_{len(os.listdir('model/landmark_data/gesture_close'))}.jpg"
+                                    cv2.imwrite(os.path.join('model/landmark_data/gesture_close', image_name), frame)
+
+                                landmarks_writer.writerow([current_label] + landmarks)
+                            else:
+                                print("Nie wybrano etykiety.")
+                if current_label is not None:
+                    cv2.putText(frame, f"Label: {current_label}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                                (255, 255, 255), 2, cv2.LINE_AA)
+
+                cv2.imshow("Music.", frame)
+
+                key = cv2.waitKey(1)
+                if key in range(ord('0'), ord('5')):
+                    label_index = key - ord('0')
+                    if label_index < len(labels):
+                        current_label = labels[label_index]
+
+                        print(f"Wybrano etykietę: {current_label}")
+                    else:
+                        print("Nieprawidłowy wybór etykiety.")
+
+                if key == ord('q'):
+                    break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+def hand_recognition(width: int, height: int):
+    model = tf.keras.models.load_model('model/model_save/hand_tracking_model.keras')
+
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    mp_hands = mp.solutions.hands
+    hand = mp_hands.Hands()
+
+    while True:
+        success, frame = cap.read()
+        if success:
+            RGB_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            result = hand.process(RGB_frame)
+
+            if result.multi_hand_landmarks:
+                for hand_landmarks in result.multi_hand_landmarks:
+                    landmarks = []
+                    for idx, lm in enumerate(hand_landmarks.landmark):
+                        h, w, c = frame.shape
+                        cx, cy = int(lm.x * w), int(lm.y * h)
+                        landmarks.extend([cx, cy])
+
+                    cv2.putText(frame, predict(landmarks, model), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                                (255, 255, 255), 2, cv2.LINE_AA)
+
+            cv2.imshow("Music.", frame)
+            key = cv2.waitKey(1)
+            if key == ord('q'):
+                break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+def extract_landmarks(image, hand):
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    result = hand.process(image_rgb)
+
+    landmarks = []
+
+    if result.multi_hand_landmarks:
+        for hand_landmarks in result.multi_hand_landmarks:
+            for lm in hand_landmarks.landmark:
+                h, w, _ = image.shape
+                cx, cy = int(lm.x * w), int(lm.y * h)
+                landmarks.extend([cx, cy])
+    return np.array(landmarks)
+
+
