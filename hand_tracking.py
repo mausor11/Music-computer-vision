@@ -220,7 +220,6 @@ def hand_recognition(width: int, height: int):
     swipe_threshold = 50
 
     gesture_controller = GestureVoiceController()
-    # gesture_controller.set_music_by_saying_title()
 
     spotifyApi = sp.SpotifyAPI(client_id, client_secret, redirect_uri)
     Thread(target=create_button_window, args=(gesture_controller,spotifyApi)).start()
@@ -248,7 +247,6 @@ def hand_recognition(width: int, height: int):
                                 spotifyApi.pause_song()
                             else:
                                 spotifyApi.resume_song()
-                        # gesture_controller.music_player.play_music(current_mode)
                         previous_mode = current_mode
                     previous_gesture = predict_gesture
 
