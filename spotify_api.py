@@ -295,6 +295,6 @@ class SpotifyAPI:
     #     print(artist['name'])
 
 
-spotifyApi = SpotifyAPI(os.getenv("CLIENT_ID"), os.getenv("CLIENT_SECRET"), os.getenv("REDIRECT_URI2"))
-
-spotifyApi.get_search_tile('CBW MIXTAPE 2')
+# spotifyApi = SpotifyAPI(os.getenv("CLIENT_ID"), os.getenv("CLIENT_SECRET"), os.getenv("REDIRECT_URI2"))
+#
+# spotifyApi.get_search_tile('CBW MIXTAPE 2')
