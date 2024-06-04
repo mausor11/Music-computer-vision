@@ -4,6 +4,7 @@ import cv2
 import mediapipe as mp
 import tensorflow as tf
 import numpy as np
+
 from gesture_voice_controller import GestureVoiceController
 import tkinter as tk
 from threading import Thread
@@ -12,24 +13,9 @@ import spotify_api as sp
 from dotenv import load_dotenv
 import os
 
-gesture_recognition_active = True
 
-def create_button_window(gesture_controller, spotifyApi):
-    global gesture_recognition_active
-    def on_button_click():
-        Thread(target=gesture_controller.set_music_by_saying_title(spotifyApi)).start()
-
-    def toggle_gesture_recognition():
-        global gesture_recognition_active
-        gesture_recognition_active = not gesture_recognition_active
-
-    window = tk.Tk()
-    button = tk.Button(window, text="Set Music By Saying Title", command=on_button_click)
-    toggle_button = tk.Button(window, text="Toggle Gesture Recognition", command=toggle_gesture_recognition)
-    button.pack()
-    toggle_button.pack()
-    window.mainloop()
-
+gesture_recognition_active = False
+gesture_recognition_paused = False
 
 def load_labels(filename):
     with open(filename, newline='') as file:
@@ -199,9 +185,14 @@ def hand_tracker_img(width: int, height: int):
 
 
 def hand_recognition(width: int, height: int):
-    global gesture_recognition_active
+    import os
 
-    model = tf.keras.models.load_model('model/model_save/hand_tracking_model.keras')
+    global gesture_recognition_active
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    model_path = os.path.join(dir_path, 'model/model_save/hand_tracking_model.keras')
+
+    model = tf.keras.models.load_model(model_path)
+
     previous_mode = 'PAUSE'
     previous_gesture = 'NONE'
     gesture_sequence = []
@@ -219,14 +210,13 @@ def hand_recognition(width: int, height: int):
     prev_cx = None
     swipe_threshold = 50
 
-    gesture_controller = GestureVoiceController()
-
     spotifyApi = sp.SpotifyAPI(client_id, client_secret, redirect_uri)
-    Thread(target=create_button_window, args=(gesture_controller,spotifyApi)).start()
 
     while True:
         success, frame = cap.read()
         if success and gesture_recognition_active:
+            if gesture_recognition_paused:
+                continue
             RGB_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = hand.process(RGB_frame)
 
@@ -243,9 +233,10 @@ def hand_recognition(width: int, height: int):
                     current_mode = gesture_recognition(gesture_sequence, predict_gesture, previous_mode)
                     if current_mode != previous_mode:
                         if current_mode == 'PLAY' or current_mode == 'PAUSE':
-                            if spotifyApi.get_current_song()['is_playing'] is True:
+                            current_song = spotifyApi.get_current_song()
+                            if current_song is not None and current_song['is_playing'] is True:
                                 spotifyApi.pause_song()
-                            else:
+                            elif current_song is not None and current_song['is_playing'] is False:
                                 spotifyApi.resume_song()
                         previous_mode = current_mode
                     previous_gesture = predict_gesture
@@ -270,7 +261,7 @@ def hand_recognition(width: int, height: int):
                 if predict_gesture != "POINTER":
                     prev_cx = None
 
-            cv2.imshow("Music.", frame)
+            # cv2.imshow("Music.", frame)
             key = cv2.waitKey(1)
             if key == ord('q'):
                 break
